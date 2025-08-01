@@ -2,59 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Program, AnchorProvider, web3, utils, BN } from '@coral-xyz/anchor';
+import { IDL } from '../idl/deposit_pda';
 
-// IDL type (simplified for this example)
-const IDL = {
-  "version": "0.1.0",
-  "name": "multi_treasury",
-  "instructions": [
-    {
-      "name": "initializeTreasury",
-      "accounts": [
-        { "name": "treasury", "isMut": true, "isSigner": false },
-        { "name": "authority", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
-      ],
-      "args": [{ "name": "name", "type": "string" }]
-    },
-    {
-      "name": "deposit",
-      "accounts": [
-        { "name": "treasury", "isMut": true, "isSigner": false },
-        { "name": "depositor", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
-      ],
-      "args": [{ "name": "amount", "type": "u64" }]
-    },
-    {
-      "name": "withdraw",
-      "accounts": [
-        { "name": "treasury", "isMut": true, "isSigner": false },
-        { "name": "authority", "isMut": false, "isSigner": true },
-        { "name": "recipient", "isMut": true, "isSigner": false }
-      ],
-      "args": [
-        { "name": "amount", "type": "u64" },
-        { "name": "recipient", "type": "publicKey" }
-      ]
-    }
-  ],
-  "accounts": [
-    {
-      "name": "Treasury",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          { "name": "name", "type": "string" },
-          { "name": "authority", "type": "publicKey" },
-          { "name": "bump", "type": "u8" }
-        ]
-      }
-    }
-  ]
-};
+// Extend Window interface for Phantom wallet
+declare global {
+  interface Window {
+    solana?: any;
+  }
+}
 
-const PROGRAM_ID = new PublicKey("4fmeXVrnzWs6hTRM6rYLaYk26FzPxRmBFkHUmp9Vw3cV");
+const PROGRAM_ID = new PublicKey("AnVtvoCdGpG83QfdnF3HWEi8hXrCqwMYbBdLPiP9gK9m");
 
 interface Treasury {
   publicKey: PublicKey;

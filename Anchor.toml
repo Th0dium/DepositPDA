@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-multi_treasury = "4fmeXVrnzWs6hTRM6rYLaYk26FzPxRmBFkHUmp9Vw3cV"
+multi_treasury = "6QBn3UkBbx1VS4hPUkyBftb1NRnPDaKsnfdjuSMyvv2U"
 
 [programs.devnet]
-multi_treasury = "4fmeXVrnzWs6hTRM6rYLaYk26FzPxRmBFkHUmp9Vw3cV"
+multi_treasury = "6QBn3UkBbx1VS4hPUkyBftb1NRnPDaKsnfdjuSMyvv2U"
 
 [registry]
 url = "https://api.apr.dev"
