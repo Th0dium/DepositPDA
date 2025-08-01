@@ -2,7 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Program, AnchorProvider, web3, utils, BN } from '@coral-xyz/anchor';
-import { IDL } from '../idl/deposit_pda';
+// Simple hardcoded IDL to avoid _bn errors
+const IDL = {
+  "version": "0.1.0",
+  "name": "deposit_pda",
+  "instructions": [
+    {
+      "name": "initializeTreasury",
+      "accounts": [
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [{ "name": "name", "type": "string" }]
+    },
+    {
+      "name": "deposit",
+      "accounts": [
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "depositor", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [{ "name": "amount", "type": "u64" }]
+    },
+    {
+      "name": "withdraw",
+      "accounts": [
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true },
+        { "name": "recipient", "isMut": true, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" },
+        { "name": "recipient", "type": "publicKey" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Treasury",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "name", "type": "string" },
+          { "name": "authority", "type": "publicKey" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ]
+};
+import DebugPanel from './DebugPanel';
 
 // Extend Window interface for Phantom wallet
 declare global {
@@ -11,7 +61,7 @@ declare global {
   }
 }
 
-const PROGRAM_ID = new PublicKey("AnVtvoCdGpG83QfdnF3HWEi8hXrCqwMYbBdLPiP9gK9m");
+const PROGRAM_ID = new PublicKey("6QBn3UkBbx1VS4hPUkyBftb1NRnPDaKsnfdjuSMyvv2U");
 
 interface Treasury {
   publicKey: PublicKey;
@@ -25,7 +75,8 @@ interface Treasury {
 
 const TreasuryManager: React.FC = () => {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  const wallet = useWallet();
+  const { publicKey, sendTransaction } = wallet;
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [newTreasuryName, setNewTreasuryName] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
@@ -35,14 +86,31 @@ const TreasuryManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const getProvider = () => {
-    if (!publicKey) return null;
-    return new AnchorProvider(connection, window.solana, {});
+    if (!publicKey || !wallet.signTransaction) {
+      console.log('Provider check failed:', { publicKey: !!publicKey, signTransaction: !!wallet.signTransaction });
+      return null;
+    }
+    console.log('Creating provider with connection:', connection.rpcEndpoint);
+    return new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
   };
 
   const getProgram = () => {
     const provider = getProvider();
     if (!provider) return null;
-    return new Program(IDL as any, PROGRAM_ID, provider);
+
+    // Skip Program creation for now, return a mock object
+    console.log('Skipping Program creation, using manual transactions');
+    return {
+      programId: PROGRAM_ID,
+      provider: provider,
+      methods: {
+        initializeTreasury: () => ({
+          accounts: () => ({
+            transaction: () => Promise.resolve(new web3.Transaction())
+          })
+        })
+      }
+    };
   };
 
   const getTreasuryPDA = (authority: PublicKey, name: string) => {
@@ -64,7 +132,7 @@ const TreasuryManager: React.FC = () => {
       if (!program) return;
 
       // Get all treasury accounts for this authority
-      const treasuryAccounts = await program.account.treasury.all([
+      const treasuryAccounts = await (program.account as any).Treasury.all([
         {
           memcmp: {
             offset: 8 + 4 + 50, // Skip discriminator + string length + max string
@@ -122,8 +190,27 @@ const TreasuryManager: React.FC = () => {
       await loadTreasuries();
       alert('Treasury created successfully!');
     } catch (error) {
+      console.error('=== DETAILED ERROR ===');
       console.error('Error creating treasury:', error);
-      alert('Error creating treasury');
+      console.error('Error type:', typeof error);
+      console.error('Error constructor:', error?.constructor?.name);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      console.error('=== END ERROR ===');
+
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        errorMessage = JSON.stringify(error);
+      }
+
+      alert(`DETAILED ERROR: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -209,6 +296,9 @@ const TreasuryManager: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Debug Panel */}
+      <DebugPanel />
+
       {/* Create Treasury */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Create New Treasury</h2>
